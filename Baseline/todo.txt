@@ -1,2 +1,6 @@
 how tf do we evaluate over each product? 
 one of the helper functions probably does so but didn't get time to look at those in detail
+
+note:
+our lives becomes a bit more simple, ets models don't work with regression the same way as arima does
+So we won't use it for dynamic regression
