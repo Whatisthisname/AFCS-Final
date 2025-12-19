@@ -1,0 +1,2 @@
+how tf do we evaluate over each product? 
+one of the helper functions probably does so but didn't get time to look at those in detail
