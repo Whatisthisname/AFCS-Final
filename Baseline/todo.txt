@@ -4,3 +4,18 @@ one of the helper functions probably does so but didn't get time to look at thos
 note:
 our lives becomes a bit more simple, ets models don't work with regression the same way as arima does
 So we won't use it for dynamic regression
+
+
+Todo
+helper functions!
+
+log transform is now fucked
+need to look at residuals of final model
+need to keep in mind differencing for arima PDQ and pdq
+look at harmonics
+
+combine train and validation to train final model before testing
+confidence intervals?
+neural networks?
+
+RUN ON WHOLE TRAIN
