@@ -42,7 +42,8 @@ clean_train_data <- function(train_data) {
 # 1. Reshaping the data from wide to long format, where each row represents a single product's sales on a specific day.
 # 2. Calculating the day based on the offset from the earliest day (d_1914 corresponds to 2011-01-29).
 # 3. Standardizing the `product` column names to match the `id` column format in `formatted_predictions`.
-clean_validation_data <- function(validation_data) {
+get_validation_data <- function() {
+  validation_data <- read.csv("../sales_test_validation_afcs2025.csv")
   validation_data <- validation_data |>
     mutate(product = sub("_TX_\\d+_validation", "", id)) |> # Strip extra identifiers from `product`
     select(-id) |> # Exclude the original `id` column
@@ -51,7 +52,9 @@ clean_validation_data <- function(validation_data) {
       names_to = "day", # Rename these columns to "day"
       values_to = "sales" # Store their values under the "sales" column
     ) |>
-    mutate(day = as.Date("2011-01-29") + as.numeric(sub("d_", "", day)) - 1) # Calculate day based on offset
+    mutate(day = as.Date("2011-01-29") + as.numeric(sub("d_", "", day)) - 1) |> # Calculate day based on offset
+    as_tsibble(index = day, key = product)
+
   return(validation_data)
 }
 
