@@ -51,7 +51,21 @@ fit_hurdle_one <- function(df_train, n_pos_min = 10, mu_cap_q = 0.99) {
 
     occ_fit <- tryCatch(
         glm(
-            occ ~ dow + snap_TX + et_national + et_religious + et_cultural + sell_price,
+            occ ~ sell_price +
+                # weekdays (Sunday reference)
+                wd_monday + wd_tuesday + wd_wednesday +
+                wd_thursday + wd_friday + wd_saturday +
+
+                # months (December reference)
+                m_january + m_february + m_march + m_april +
+                m_may + m_june + m_july + m_august +
+                m_september + m_october + m_november +
+
+                # events
+                et_sporting + et_cultural +
+                et_national + et_religious +
+
+                snap_TX,
             family = binomial(),
             data = df_train
         ),
@@ -69,7 +83,23 @@ fit_hurdle_one <- function(df_train, n_pos_min = 10, mu_cap_q = 0.99) {
     } else {
         tryCatch(
             glm(
-                sales ~ dow + sell_price,
+                sales ~ sell_price +
+                    # do you need to specify these?
+
+                    # weekdays (Sunday reference)
+                    wd_monday + wd_tuesday + wd_wednesday +
+                    wd_thursday + wd_friday + wd_saturday +
+
+                    # months (December reference)
+                    m_january + m_february + m_march + m_april +
+                    m_may + m_june + m_july + m_august +
+                    m_september + m_october + m_november +
+
+                    # events
+                    et_sporting + et_cultural +
+                    et_national + et_religious +
+
+                    snap_TX,
                 family = Gamma(link = "log"),
                 data = df_pos
             ),
@@ -89,6 +119,20 @@ fit_hurdle_one <- function(df_train, n_pos_min = 10, mu_cap_q = 0.99) {
 
 # Function to predict using hurdle model for one product
 predict_hurdle_one <- function(model, df_test) {
+    # Handle missing models
+    if (is.null(model)) {
+        cat("Model is NULL for the given product. Returning empty predictions.\n")
+        return(tibble(
+            day = df_test$day,
+            product = df_test$product,
+            sales = df_test$sales,
+            y_hat = numeric(0),
+            p_hat = numeric(0),
+            mu_hat = numeric(0)
+        ))
+    }
+
+
     df_test <- df_test |>
         filter(!is.na(day)) |>
         mutate(
@@ -100,6 +144,7 @@ predict_hurdle_one <- function(model, df_test) {
             sell_price = as.numeric(sell_price)
         )
 
+    # Debugging intermediate calculations
     p_hat <- if (is.null(model$occ_fit)) {
         rep(0, nrow(df_test))
     } else {

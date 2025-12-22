@@ -1,10 +1,10 @@
 # Helper Functions for Baseline Model
 
 # Load required libraries
-library(dplyr)
-library(tsibble)
-library(fable)
-library(ggplot2)
+library(dplyr, quietly = TRUE)
+library(tsibble, quietly = TRUE)
+library(fable, quietly = TRUE)
+library(ggplot2, quietly = TRUE)
 
 # Function to calculate RMSE
 calculate_rmse <- function(actual, predicted) {
@@ -49,6 +49,7 @@ align_predictions <- function(formatted_predictions, validation) {
 # This function calculates RMSE and MAE for aligned data
 calculate_metrics <- function(aligned_data) {
   metrics <- aligned_data |>
+    as_tibble() |> # Convert to tibble to remove tsibble-specific behavior
     summarise(
       RMSE = sqrt(mean((sales - predicted_sales)^2, na.rm = TRUE)),
       MAE = mean(abs(sales - predicted_sales), na.rm = TRUE)
@@ -57,9 +58,40 @@ calculate_metrics <- function(aligned_data) {
 }
 
 
-get_train_data <- function() {
+get_train_data <- function(dates) {
   # Load train data
   train <- clean_train_data(read.csv("../sales_train_validation_afcs2025.csv"))
+
+  # extending it by adding calander data
+  train <- inner_join(
+    train,
+    dates,
+    by = c("day")
+  )
+  train <- train |> as_tsibble(index = day, key = product)
+
+  prices <- read.csv("../sell_prices_afcs2025.csv") |>
+    rename(product = item_id) |>
+    select(-store_id)
+
+  # extending it by price
+  train <- inner_join(
+    train,
+    prices,
+    by = c("product", "wm_yr_wk")
+  )
+
+  train <- train |> mutate(log_sales = log(sales + 1))
+  return(train)
+}
+
+get_train_and_validation_data_concatted <- function(dates) {
+  # Load train data
+  train <- clean_train_data(read.csv("../sales_train_validation_afcs2025.csv"))
+  validation <- get_validation_data()
+
+  # Concatenate train and validation data
+  train <- bind_rows(train, validation)
 
   # extending it by adding calander data
   train <- inner_join(
