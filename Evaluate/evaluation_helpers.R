@@ -195,6 +195,142 @@ fit_or_load_hurdle_models <- function(train, sparse_products, force_fit) {
     return(hurdle_models)
 }
 
+fit_hurdle_one <- function(df_train, n_pos_min = 10, mu_cap_q = 0.99) {
+    product_id <- unique(df_train$product)[1]
+
+    df_train <- df_train |>
+        filter(!is.na(day)) |>
+        mutate(
+            occ = as.integer(sales > 0),
+            dow = factor(weekday),
+            snap_TX = as.integer(snap_TX),
+            et_national = as.integer(et_national),
+            et_religious = as.integer(et_religious),
+            et_cultural = as.integer(et_cultural),
+            sell_price = as.numeric(sell_price)
+        )
+
+    dow_levels <- levels(df_train$dow)
+
+    occ_fit <- tryCatch(
+        glm(
+            occ ~ sell_price +
+                # weekdays (Sunday reference)
+                wd_monday + wd_tuesday + wd_wednesday +
+                wd_thursday + wd_friday + wd_saturday +
+
+                # months (December reference)
+                m_january + m_february + m_march + m_april +
+                m_may + m_june + m_july + m_august +
+                m_september + m_october + m_november +
+
+                # events
+                et_sporting + et_cultural +
+                et_national + et_religious +
+
+                snap_TX,
+            family = binomial(),
+            data = df_train
+        ),
+        error = function(e) NULL
+    )
+
+    df_pos <- df_train |> filter(sales > 0)
+    n_pos <- nrow(df_pos)
+
+    mu_fallback <- if (n_pos == 0) 0 else mean(df_pos$sales)
+    mu_cap <- if (n_pos == 0) 0 else as.numeric(stats::quantile(df_pos$sales, probs = mu_cap_q, na.rm = TRUE, names = FALSE))
+
+    size_fit <- if (n_pos < n_pos_min) {
+        NULL
+    } else {
+        tryCatch(
+            glm(
+                sales ~ sell_price +
+                    # do you need to specify these?
+
+                    # weekdays (Sunday reference)
+                    wd_monday + wd_tuesday + wd_wednesday +
+                    wd_thursday + wd_friday + wd_saturday +
+
+                    # months (December reference)
+                    m_january + m_february + m_march + m_april +
+                    m_may + m_june + m_july + m_august +
+                    m_september + m_october + m_november +
+
+                    # events
+                    et_sporting + et_cultural +
+                    et_national + et_religious +
+
+                    snap_TX,
+                family = Gamma(link = "log"),
+                data = df_pos
+            ),
+            error = function(e) NULL
+        )
+    }
+
+    list(
+        product_id = product_id,
+        occ_fit = occ_fit,
+        size_fit = size_fit,
+        mu_fallback = mu_fallback,
+        mu_cap = mu_cap,
+        dow_levels = dow_levels
+    )
+}
+
+predict_hurdle_one <- function(model, df_test) {
+    # Handle missing models
+    if (is.null(model)) {
+        cat("Model is NULL for the given product. Returning empty predictions.\n")
+        return(tibble(
+            day = df_test$day,
+            product = df_test$product,
+            sales = df_test$sales,
+            y_hat = numeric(0),
+            p_hat = numeric(0),
+            mu_hat = numeric(0)
+        ))
+    }
+
+
+    df_test <- df_test |>
+        filter(!is.na(day)) |>
+        mutate(
+            dow = factor(weekday, levels = model$dow_levels),
+            snap_TX = as.integer(snap_TX),
+            et_national = as.integer(et_national),
+            et_religious = as.integer(et_religious),
+            et_cultural = as.integer(et_cultural),
+            sell_price = as.numeric(sell_price)
+        )
+
+    # Debugging intermediate calculations
+    p_hat <- if (is.null(model$occ_fit)) {
+        rep(0, nrow(df_test))
+    } else {
+        suppressWarnings(as.numeric(predict(model$occ_fit, newdata = df_test, type = "response")))
+    }
+
+    mu_hat <- if (!is.null(model$size_fit)) {
+        suppressWarnings(as.numeric(predict(model$size_fit, newdata = df_test, type = "response")))
+    } else {
+        rep(model$mu_fallback, nrow(df_test))
+    }
+
+    mu_hat <- pmin(mu_hat, model$mu_cap)
+    y_hat <- p_hat * mu_hat
+
+    tibble(
+        day = df_test$day,
+        product = model$product_id,
+        sales = df_test$sales,
+        y_hat = y_hat,
+        p_hat = p_hat,
+        mu_hat = mu_hat
+    )
+}
 
 generate_hurdle_predictions <- function(hurdle_models, h, sell_price_future, sparse_products) {
     predictions <- list() # Initialize an empty list to store predictions
@@ -290,4 +426,5 @@ compare_errors_with_mean_baseline <- function(train, validation, h) {
     cat("Final Evaluation Metrics after replacing worst products with mean forecasts:\n")
     final_metrics <- calculate_metrics(final_aligned_data)
     print(final_metrics)
+    return(final_metrics)
 }
