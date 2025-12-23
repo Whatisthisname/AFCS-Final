@@ -50,8 +50,8 @@ align_predictions <- function(formatted_predictions, validation) {
 calculate_metrics <- function(aligned_data) {
   metrics <- aligned_data |>
     summarise(
-      RMSE = sqrt(mean((sales - predicted_sales)^2, na.rm = TRUE)),
-      MAE = mean(abs(sales - predicted_sales), na.rm = TRUE)
+      RMSE = sqrt(mean((sales - predicted_sales)^2)),
+      MAE = mean(abs(sales - predicted_sales))
     )
   return(metrics)
 }
@@ -80,7 +80,7 @@ get_train_data <- function() {
     by = c("product", "wm_yr_wk")
   )
 
-  train <- train |> mutate(log_sales = log(sales + 1))
+  train <- train |> mutate(log_sales = log(sales + 1)) |> mutate(sales = log_sales)
   return(train)
 }
 
