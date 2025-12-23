@@ -43,7 +43,7 @@ clean_train_data <- function(train_data) {
 # 2. Calculating the day based on the offset from the earliest day (d_1914 corresponds to 2011-01-29).
 # 3. Standardizing the `product` column names to match the `id` column format in `formatted_predictions`.
 get_validation_data <- function() {
-  validation_data <- read.csv("../sales_test_validation_afcs2025.csv")
+  validation_data <- read.csv("./data/sales_test_validation_afcs2025.csv")
   validation_data <- validation_data |>
     mutate(product = sub("_TX_\\d+_validation", "", id)) |> # Strip extra identifiers from `product`
     select(-id) |> # Exclude the original `id` column
@@ -68,7 +68,7 @@ plot_total_sales <- function(train_tsibble) {
 
 get_train_and_validation_data_concatted <- function(dates) {
   # Load train data
-  train <- clean_train_data(read.csv("../sales_train_validation_afcs2025.csv"))
+  train <- clean_train_data(read.csv("./data/sales_train_validation_afcs2025.csv"))
   validation <- get_validation_data()
 
   # Concatenate train and validation data
@@ -82,7 +82,7 @@ get_train_and_validation_data_concatted <- function(dates) {
   )
   train <- train |> as_tsibble(index = day, key = product)
 
-  prices <- read.csv("../sell_prices_afcs2025.csv") |>
+  prices <- read.csv("./data/sell_prices_afcs2025.csv") |>
     rename(product = item_id) |>
     select(-store_id)
 
@@ -103,7 +103,7 @@ get_train_and_validation_data_concatted <- function(dates) {
 # 2. Calculating the day based on the offset from the earliest day (d_1914 corresponds to 2011-01-29).
 # 3. Standardizing the `product` column names to match the `id` column format in `formatted_predictions`.
 get_evaluation_data <- function() {
-  evaluation_data <- read.csv("../sales_test_evaluation_afcs_2025.csv")
+  evaluation_data <- read.csv("./data/sales_test_evaluation_afcs_2025.csv")
   evaluation_data <- evaluation_data |>
     mutate(product = sub("_TX_\\d+_validation", "", id)) |> # Strip extra identifiers from `product`
     select(-id) |> # Exclude the original `id` column
@@ -120,7 +120,7 @@ get_evaluation_data <- function() {
 
 fit_or_load_price_model <- function(train, force_fit) {
     # load fit or fit it and store the fit
-    path <- "models/prices/naive.rds"
+    path <- "./models/prices/naive.rds"
     if (!force_fit && file.exists(path)) {
         price_fit_naive <- readRDS(path)
     } else {
@@ -177,7 +177,7 @@ generate_future_sell_prices <- function(price_model, date_events, h) {
 
 
 fit_or_load_hurdle_models <- function(train, sparse_products, force_fit) {
-    path <- "models/hurdle_models.rds"
+    path <- "./models/hurdle_models.rds"
     if (!force_fit && file.exists(path)) {
         hurdle_models <- readRDS(path)
     } else {
@@ -395,7 +395,7 @@ compare_errors_with_mean_baseline <- function(train, validation, h) {
     print(accuracy_mean)
 
     mean_products_and_errors <- calculate_metrics(mean_aligned_data |> group_by(product)) |> arrange(-RMSE)
-    write.csv(mean_products_and_errors, "baseline_mean_accuracy.csv", row.names = FALSE)
+    write.csv(mean_products_and_errors, "./data/baseline_mean_accuracy.csv", row.names = FALSE)
 
     joined_errors <- mean_products_and_errors |>
         inner_join(final_products_and_errors, by = "product", suffix = c("_mean", "_hurdle")) |>
